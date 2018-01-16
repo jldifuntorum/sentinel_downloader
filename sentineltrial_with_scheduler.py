@@ -1,3 +1,5 @@
+#John Keithley Difuntorum
+
 from sentinelsat.sentinel import SentinelAPI, read_geojson, geojson_to_wkt
 from datetime import date
 import os 
