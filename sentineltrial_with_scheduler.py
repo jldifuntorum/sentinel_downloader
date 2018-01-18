@@ -27,16 +27,59 @@ directory2 = '/Users/kitdifuntorum/Documents/Sentinel Footprints/'
 def listdir_nohidden(path):
     return glob.glob(os.path.join(path, '*'))
 
-def download_job(directory, directory2, api, initial):
+
+
+def download_job(directory):
 
     for subdir in listdir_nohidden(directory):
-        dir_subdir=os.path.join(directory, subdir)
+
+        for json_subdir in listdir_nohidden(subdir):
+
+            print(json_subdir)
+            os.chdir(json_subdir)
+            api.download('2b506455-5249-480b-833d-268197aaf350')
+
+    
+
+def main_job(directory, directory2, api, initial):
+    scene_dir = query_job(directory, directory2, api, initial)
+    download_job()
+    #name_append = scene_dir.replace(directory2,)
+    # rename(scene_dir, r'*.', )
+
+def batch_rename(directory):        ####    Note: FOR SENTINEL 1 DATA only  #####
+
+    for subdir in listdir_nohidden(directory):
+
+        for json_subdir in listdir_nohidden(subdir):
+
+            sat_and_tile = json_subdir.replace(directory,'')
+            sat_num, tile_num = re.split('\ |/', sat_and_tile)
+
+            for filename in os.listdir(json_subdir):
+
+                if filename.endswith('.zip'):
+
+                    ###     parse filename with sensing date    ###
+
+                    path = os.path.join(json_subdir, filename)
+                    file_param = filename.split('_')
+                    sense_date = file_param[5]
+                    target = os.path.join(json_subdir, sense_date[0:8] + '_' + sat_num + '_' + tile_num + '.zip')
+                    os.rename(path, target)
+
+
+
+def query_job(directory, directory2, api, initial):
+
+    for subdir in listdir_nohidden(directory):
         
-        for filename in os.listdir(dir_subdir):
+        
+        for filename in os.listdir(subdir):
             if filename.endswith(".geojson"):
                 
                 #print("subdir: " + subdir)
-                filename2=os.path.join(dir_subdir, filename)
+                filename2=os.path.join(subdir, filename)
                 
                 #print("filename2: " + filename2)
 
@@ -72,6 +115,7 @@ def download_job(directory, directory2, api, initial):
                 # #odata_prod = api.get_product_odata(product)
 
                 products_df = api.to_dataframe(products)
+
                 # if initial == 'TRUE': 
                 #     products_init = products_df
                 #     products_out  = products_df
@@ -86,8 +130,8 @@ def download_job(directory, directory2, api, initial):
 
                 products_df.to_csv(str(now_time)+'.csv')
                 print(str(now_time)+'.csv created at ' + scene_dir)
-                api.download('284f63cf-6488-4f22-8ed2-404a104b103d')
-
+                
+                #api.download('2b506455-5249-480b-833d-268197aaf350')
                 ####    COMPARE PRODUCTS INIT AND PRODUCTS DF      #####
 
                 # df_diff = pd.concat([products_init, products_df])
@@ -143,10 +187,12 @@ def download_job(directory, directory2, api, initial):
             #     print('No GeoJSON files are present on the folder')
             #     #sys.exit(1)
 
-        # return products_df
+        return scene_dir
 
 
-download_job(directory, directory2, api, 'TRUE')
+#query_job(directory, directory2, api, 'TRUE')
+#download_job(directory2)
+batch_rename(directory2)
 sys.exit(1)
 
 ####products_init = products_df
