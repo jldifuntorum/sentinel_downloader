@@ -37,6 +37,7 @@ def download_job(directory):
 
             print(json_subdir)
             os.chdir(json_subdir)
+            open(json_subdir +'/'+'S2B_MSIL1C_20180116T023029_N0206_R046_T50QRF_20180116T074648.zip', 'a').close()
             api.download('2b506455-5249-480b-833d-268197aaf350')
 
     
@@ -47,7 +48,7 @@ def main_job(directory, directory2, api, initial):
     #name_append = scene_dir.replace(directory2,)
     # rename(scene_dir, r'*.', )
 
-def batch_rename(directory):        ####    Note: FOR SENTINEL 1 DATA only  #####
+def batch_rename_job(directory):        ####    Note: FOR SENTINEL 1 DATA only  #####
 
     for subdir in listdir_nohidden(directory):
 
@@ -69,8 +70,13 @@ def batch_rename(directory):        ####    Note: FOR SENTINEL 1 DATA only  ####
                     os.rename(path, target)
 
 
+def download_job1(satnum, tilenum, directory2, sat_id):
 
-def query_job(directory, directory2, api, initial):
+    output_dir = os.path.join(directory2,satnum,tilenum)
+    os.chdir(output_dir)
+    api.download(sat_id)
+
+def iterate_geojson_job(directory, directory2, api):
 
     for subdir in listdir_nohidden(directory):
         
@@ -89,10 +95,49 @@ def query_job(directory, directory2, api, initial):
                 # print(subdir_min)
                 # print(filename_min)
 
+                #   For Sentinel 1 Data
                 if re.search('s1a', subdir_min, re.IGNORECASE):
-                    scene_dir = os.path.join(directory2 + 'S1A/', filename_min)
+                    scene_dir = os.path.join(directory2,'S1A', 'S1A_' + filename_min)
                 elif re.search('s1b', subdir_min, re.IGNORECASE): 
-                    scene_dir = os.path.join(directory2 + 'S1B/', filename_min)
+                    scene_dir = os.path.join(directory2,'S1B', 'S1B_' + filename_min)
+
+
+                #If GeoJSON folder does not exist
+                if not os.path.exists(scene_dir):
+                    os.makedirs(scene_dir)
+                    print(scene_dir + " folder created.") 
+
+
+                footprint = geojson_to_wkt(read_geojson(filename2))
+                products = api.query(footprint,
+                            date=("NOW-2DAY","NOW"),
+                             platformname='Sentinel-1')
+
+
+def catalogue_job(directory, directory2, api):
+
+    for subdir in listdir_nohidden(directory):
+        
+        
+        for filename in os.listdir(subdir):
+            if filename.endswith(".geojson"):
+                
+                #print("subdir: " + subdir)
+                filename2=os.path.join(subdir, filename)
+                
+                #print("filename2: " + filename2)
+
+                subdir_min = subdir.replace(directory, '')
+                filename_min = filename.replace('.geojson', '')
+                
+                # print(subdir_min)
+                # print(filename_min)
+
+                #   For Sentinel 1 Data
+                if re.search('s1a', subdir_min, re.IGNORECASE):
+                    scene_dir = os.path.join(directory2,'S1A', 'S1A_' + filename_min)
+                elif re.search('s1b', subdir_min, re.IGNORECASE): 
+                    scene_dir = os.path.join(directory2,'S1B', 'S1B_' + filename_min)
 
 
                 if not os.path.exists(scene_dir):
@@ -101,8 +146,13 @@ def query_job(directory, directory2, api, initial):
 
                 
                 #print("scene_dir: " + scene_dir)
+
+                # sys.exit(1)
                 
-                os.chdir(scene_dir)
+                # os.chdir(scene_dir)
+
+
+                ###     Insert Download List Job HERE           ######
 
 
                 footprint = geojson_to_wkt(read_geojson(filename2))
@@ -190,15 +240,17 @@ def query_job(directory, directory2, api, initial):
         return scene_dir
 
 
-#query_job(directory, directory2, api, 'TRUE')
-#download_job(directory2)
-batch_rename(directory2)
+# catalogue_job(directory, directory2, api)
+download_job(directory2)
+# batch_rename(directory2)
+
+
 sys.exit(1)
 
 ####products_init = products_df
 #####       
 
-schedule.every(60).seconds.do(download_job, directory, directory2, api, 'FALSE')
+#schedule.every(60).seconds.do(download_job, directory, directory2, api, 'FALSE')
 
 
 # products_init.to_csv('testy1.csv')
@@ -210,8 +262,8 @@ schedule.every(60).seconds.do(download_job, directory, directory2, api, 'FALSE')
 # schedule.every().monday.do(download_job)
 # schedule.every().wednesday.at("13:15").do(download_job)
 
-while True:
-    schedule.run_pending()
+# while True:
+#     schedule.run_pending()
     #time.sleep(1)
 
 # search by polygon, time, and SciHub query keywords
