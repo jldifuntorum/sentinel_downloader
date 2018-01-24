@@ -8,11 +8,11 @@ areacode = ''
 geojson_dir = r''
 output_dir = r''
 
-directory = '/Users/kitdifuntorum/Documents/GeoJSON files/'
-directory2 = '/Users/kitdifuntorum/Documents/Sentinel Footprints/'
+directory = '/home/kit.difuntorum/datos1/Sentinel_Scenes/GeoJSON_files/'
+directory2 = '/home/kit.difuntorum/datos1/Sentinel_Scenes/Sentinel_Images/'
 
 #	This folder gets purged monthly
-temp_dir = '/Users/kitdifuntorum/Documents/Temp'
+# temp_dir = '/Users/kitdifuntorum/Documents/Temp'
 
 # query keywords
 start_date = 'NOW-3DAY'
@@ -28,11 +28,10 @@ sensor_operational_mode = None
 # post-search modes
 printProducts = True
 writeToDB = True
-downloadProducts = False
+downloadProducts = True
 getGeoJSON = False
 writetoCSV = False
-checkFiles = False
+checkFiles = True
 renameFiles = True
 readDB = True
-
 
