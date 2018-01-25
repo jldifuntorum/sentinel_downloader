@@ -186,31 +186,85 @@ def check_files_job(products, output_dir, api):
 	return has_error
 
 	
-def sql_write(products, foot_list, api):
+def sql_write_and_rename_job(products, output_dir, foot_list, api, tile_num):
 
 	if df.writeToDB:
-		conn =sqlite3.connect('sentinelsatDB.db')
-		c = conn.cursor()
-		#c.execute('''CREATE TABLE IF NOT EXISTS scenes (pid text, filename text, date text, satnum text, areacode text, output_dir text)''')
-		for product in products:
-			t = (product, )
-			c. execute('SELECT * FROM scenes where pid = ?', t)
-			temp = c.fetchone()
 
-			if temp is None:
-				pid = product
-				filename = products[product]['filename']
-				date = str(products[product]['beginposition']).split()[0]
-				satnum = foot_list[1]
-				areacode = foot_list[2]
-				output_dir = foot_list[0]
-				database_write = (pid, filename, date, satnum, areacode, output_dir)
-				c.execute('INSERT INTO scenes VALUES (?,?,?,?,?,?)', database_write)
-				print(filename + ' added to inventory.')
+		for filename in os.listdir(output_dir):
+
+			if filename.endswith('.zip') and len(filename) > 20 :
+
+				file_list = []
+				file_list.append(os.path.join(output_dir,filename))
+				check_dict  = api.check_files(paths = file_list)
+				#print(os.path.join(output_dir,filename))
+				if check_dict:
+					print('check_dict: ' + str(check_dict))
+					print('Error on ' + filename)
+
+				else:
+
+					conn =sqlite3.connect('sentinelsatDB.db')
+					c = conn.cursor()
+					c.execute('''CREATE TABLE IF NOT EXISTS scenes (pid text, filename text, date text, satnum text, areacode text, output_dir text)''')
+					filename_SAFE = filename.replace('zip','SAFE')
+					t = (filename_SAFE, )
+					c.execute('SELECT * FROM scenes where filename = ?', t)
+					
+					if c.fetchone() is None:
+
+						for product in products:
+							if products[product]['filename'] == filename_SAFE: 
+								pid = product
+								file_title = products[product]['filename']
+								date = str(products[product]['beginposition']).split()[0]
+								satnum = foot_list[1]
+								areacode = foot_list[2]
+								output_dir = foot_list[0]
+								database_write = (pid, file_title, date, satnum, areacode, output_dir)
+								c.execute('INSERT INTO scenes VALUES (?,?,?,?,?,?)', database_write)
+								print(filename + ' added to inventory.')
+
+						# Rename file
+						if df.renameFiles: 
+
+							path = os.path.join(output_dir, filename)
+				    		file_param = filename.split('_')
+				    		sense_date = file_param[5]
+				    		new_filename = sense_date[0:8] + '_' + tile_num + '.zip'
+				    		print('Renaming ' + filename + ' to ' + new_filename)
+				    		target = os.path.join(output_dir, sense_date[0:8] + '_' + tile_num + '.zip')
+				    		os.rename(path, target)
+
+					conn.commit()
+					conn.close()
+
+
+					
+
+	# if df.writeToDB:
+	# 	conn =sqlite3.connect('sentinelsatDB.db')
+	# 	c = conn.cursor()
+	# 	c.execute('''CREATE TABLE IF NOT EXISTS scenes (pid text, filename text, date text, satnum text, areacode text, output_dir text)''')
+	# 	for product in products:
+	# 		t = (product, )
+	# 		c. execute('SELECT * FROM scenes where pid = ?', t)
+	# 		temp = c.fetchone()
+
+	# 		if temp is None:
+	# 			pid = product
+	# 			filename = products[product]['filename']
+	# 			date = str(products[product]['beginposition']).split()[0]
+	# 			satnum = foot_list[1]
+	# 			areacode = foot_list[2]
+	# 			output_dir = foot_list[0]
+	# 			database_write = (pid, filename, date, satnum, areacode, output_dir)
+	# 			c.execute('INSERT INTO scenes VALUES (?,?,?,?,?,?)', database_write)
+	# 			print(filename + ' added to inventory.')
 
 				
-		conn.commit()
-		conn.close()
+	# 	conn.commit()
+	# 	conn.close()
 
 
 def sql_read(products):
@@ -223,13 +277,14 @@ def sql_read(products):
 
 		products_new = products
 		#print('products_new: ' + str(products_new))
+		#print('hello')
 		for product in products:
 				
 			c.execute('SELECT * FROM scenes WHERE pid=?', (product, ))
 			temp = c.fetchall()
 			if temp:
 
-				print('temp: ' + str(temp))
+				#print('temp: ' + str(temp))
 
 				print(products[product]['filename'] + ' is already in the inventory.')
 				products_new.pop(product)
