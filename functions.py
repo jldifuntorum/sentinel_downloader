@@ -17,54 +17,46 @@ from collections import defaultdict
 def listdir_nohidden(path):
     return glob.glob(os.path.join(path, '*'))
 
-
-# Iterate over all geojson
-def iterate_geojson_job(directory, directory2):
+def iterate_files(files, satnum, directory2, root):
 
 	footprint_list = defaultdict(list)
 
-	# Iterate over all directories in the GeoJSON folder
-	for subdir in listdir_nohidden(directory):
-	    
-	    # Iterate over all GeoJSON files 
+	for filename in files:
+		if filename.endswith('.geojson'):
+			footprint = os.path.join(root, filename)
+			tile_num = satnum + '_' + filename.replace('.geojson','')
+			scene_dir = os.path.join(directory2, satnum, tile_num)
 
-	    for filename in os.listdir(subdir):
+			# Create directories if GeoJSON folder does not exist
+			if not os.path.exists(scene_dir):
+			    os.makedirs(scene_dir)
+			    print(scene_dir + " folder created.") 
 
-
-	        if filename.endswith(".geojson"):
-
-	        	
-				footprint = os.path.join(subdir, filename)
-				
-				# extract the satellite number sub-directory
-				subdir_min = subdir.replace(directory, '')
-
-				# extract the areacode
-				filename_min = filename.replace('.geojson', '')
-
-					# define the directory where the downloaded data will be saved
-				if re.search('s1a', subdir_min, re.IGNORECASE):
-				    scene_dir = os.path.join(directory2,'S1A', 'S1A_' + filename_min)
-				    satnum = 'S1A'
-				elif re.search('s1b', subdir_min, re.IGNORECASE): 
-				    scene_dir = os.path.join(directory2,'S1B', 'S1B_' + filename_min)
-				    satnum = 'S1B'
+			footprint_list[footprint].append(scene_dir)
+			footprint_list[footprint].append(satnum) 
+			footprint_list[footprint].append(tile_num)
+			
+	return footprint_list
 
 
-				# Create directories if GeoJSON folder does not exist
-				if not os.path.exists(scene_dir):
-				    os.makedirs(scene_dir)
-				    print(scene_dir + " folder created.") 
+# Iterate over all geojson
+def iterate_geojson_job(directory, directory2, sat_limiter):
 
-				#scene_dir_list.append(scene_dir)
-				footprint_list[footprint].append(scene_dir)
-				footprint_list[footprint].append(satnum) 
-				footprint_list[footprint].append(filename_min)
+	foot_list = defaultdict(list)
 
-				
+	for root, dirs, files in os.walk(directory):
 
+		if sat_limiter == 'S1A_only' and re.search('s1a', root, re.IGNORECASE):
+			foot_list = iterate_files(files, 'S1A', directory2, root)
+		elif sat_limiter == 'S1B_only' and re.search('s1b', root, re.IGNORECASE):
+			foot_list = iterate_files(files, 'S1B', directory2, root)
+		elif sat_limiter == 'both':
+			if re.search('s1a', root, re.IGNORECASE):
+				foot_list.update(iterate_files(files, 'S1A', directory2, root))
+			elif re.search('s1b', root, re.IGNORECASE):
+				foot_list.update(iterate_files(files, 'S1B', directory2, root))
 
-	return (footprint_list)
+	return (foot_list)
 
 
 # Call SentinelSat API for querying satellite data

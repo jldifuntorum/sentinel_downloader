@@ -18,7 +18,8 @@ if __name__ == "__main__":
 
 	api = SentinelAPI(df.username, df.password)
 	
-	footprint_l = iterate_geojson_job(df.directory, df.directory2)
+	footprint_l = iterate_geojson_job(df.directory, df.directory2, df.sat_limiter)
+
 
 	for footprint in footprint_l:
 
@@ -39,11 +40,4 @@ if __name__ == "__main__":
 		has_error = check_files_job(products_new, output_dir, api)
 		if not has_error:
 			sql_write_and_rename_job(products_new, output_dir, foot_list, api, tile_num)
-			# sql_write(products_new, foot_list, api)
-			# rename_job(output_dir, df.directory2, tile_num)
-
-		#sql_read()
-
-		# update directory in case of no error
-		# rename files in case of no error
-
+			
