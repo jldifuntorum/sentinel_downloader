@@ -24,7 +24,7 @@ orbit_direction = None
 polarisation_mode = None
 cloud_cover_percentage = None
 sensor_operational_mode = None
-sat_limiter = 'S1B_only'
+sat_limiter = 'both'
 
 # post-search modes
 printProducts = True
@@ -32,7 +32,7 @@ writeToDB = True
 downloadProducts = False
 getGeoJSON = False
 writetoCSV = False
-checkFiles = False
+checkFiles = True
 renameFiles = True
 readDB = True
 

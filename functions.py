@@ -2,7 +2,6 @@ from sentinelsat.sentinel import SentinelAPI, read_geojson, geojson_to_wkt
 import os 
 import schedule
 import time, datetime
-import sys
 import pandas as pd
 import glob 
 import re
@@ -10,8 +9,12 @@ import sqlite3
 import def_values as df
 import csv
 from collections import defaultdict
+import logging
+import datetime
 
 #Function Declarations
+
+logging.basicConfig(filename='error_sentinel.log',level=logging.ERROR)
 
 def iterate_files(files, satnum, directory2, root):
 
@@ -118,30 +121,32 @@ def check_files_job(products, output_dir, api):
 
 	pid = []
 	error_list = {}
-	has_error = False
 	for product in products:
 		pid.append(product)
 
 	
 	if pid and df.checkFiles: 
 		error_list = api.check_files(ids = pid, directory = output_dir)
+		print ('error_list: ' + str(error_list))
 		if error_list:
-			has_error = True
-			print("error found on " + output_dir)
-			with open('error_list.csv', 'wb') as f:
-				w = csv.DictWriter(f, error_list.keys())
-				w.writeheader()
-				w.writerow(error_list)
+			for errors in error_list:
+				print('Error on file ' + str(error_list[errors][0]['title']) + ' located at ' + output_dir)
+				logging.error('Error on file ' + str(error_list[errors][0]['title']) + ' located at ' + output_dir)
 			
-		else:
-			# make 'already downloaded files list'
-			has_error = False
+			# Redownload file in case of error
+			if df.downloadProducts:
+				print 'Retrying download of ' + str(error_list[errors][0]['title'])
+				api.download(error_list[errors][0]['id'], output_dir)
 
-	return has_error
+			error_list = api.check_files(ids = pid, directory = output_dir)	
+
+	return error_list
+
 
 # Write completed scene to database and rename the file
 def sql_write_and_rename_job(products, output_dir, foot_list, api, tile_num):
 
+	check_dict = defaultdict(list)
 	if df.writeToDB:
 
 		for filename in os.listdir(output_dir):
@@ -151,10 +156,17 @@ def sql_write_and_rename_job(products, output_dir, foot_list, api, tile_num):
 				file_list = []
 				file_list.append(os.path.join(output_dir,filename))
 				check_dict  = api.check_files(paths = file_list)
-				#print(os.path.join(output_dir,filename))
+				
 				if check_dict:
-					print('check_dict: ' + str(check_dict))
-					print('Error on ' + filename)
+					if df.checkFiles:
+						for file_zip in check_dict:
+							print 'ERROR: ' + file_zip + ' does not match ' + str(check_dict[file_zip][0]['title']) + ' on Copernicus server.'
+							logging.error(file_zip + ' does not match ' + str(check_dict[file_zip][0]['title']) + ' on Copernicus server.' + '\n')
+		
+							if df.downloadProducts:
+								print 'Retrying download of ' + file_zip
+								api.download(check_dict[file_zip][0]['id'], output_dir)
+
 
 				else:
 
@@ -193,7 +205,7 @@ def sql_write_and_rename_job(products, output_dir, foot_list, api, tile_num):
 					conn.commit()
 					conn.close()
 
-# Read the database
+#  Read the database
 def sql_read(products):
 
 	products_new = {}
