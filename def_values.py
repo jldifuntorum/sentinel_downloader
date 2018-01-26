@@ -24,6 +24,7 @@ orbit_direction = None
 polarisation_mode = None
 cloud_cover_percentage = None
 sensor_operational_mode = None
+sat_limiter = 'S1B_only'
 
 # post-search modes
 printProducts = True
