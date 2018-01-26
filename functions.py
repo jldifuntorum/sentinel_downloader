@@ -13,10 +13,6 @@ from collections import defaultdict
 
 #Function Declarations
 
-#disregard hidden files in iteration
-def listdir_nohidden(path):
-    return glob.glob(os.path.join(path, '*'))
-
 def iterate_files(files, satnum, directory2, root):
 
 	footprint_list = defaultdict(list)
@@ -100,43 +96,7 @@ def sat_query_job(footprint, api, satnum, tile_num):
 
 	return products
 
-def sqldb_access_job(products):
-
-	# write to database
-	products_new = {}
-	if df.writeToDB:
-	    conn = sqlite3.connect('sentinel')
-	    c = conn.cursor()
-	    products_new = dict(products)
-	    for product in products:
-	        c.execute('SELECT * FROM downloads where productid = ?', (product,)) 
-	        temp = c.fetchone()
-	        if temp is None:
-	            if products[product]['filename'].startswith('S1A'):
-	                attr_platformname = 'Sentinel-1A'
-	            elif products[product]['filename'].startswith('S1B'):
-	                attr_platformname = 'Sentinel-1B'
-	            attr_dateacquired = str(products[product]['beginposition']).split()[0]
-	            attr_producttype = products[product]['producttype']
-	            attr_orbitdirection = products[product]['orbitdirection']
-	            attr_polarisationmode = products[product]['polarisationmode']
-	            attr_sensoropmode = products[product]['sensoroperationalmode']
-	            attr_productid = product
-	            attr_datedownloaded = str(datetime.today()).split()[0]
-	            parameters = (attr_platformname, areacode, attr_dateacquired,
-	                          attr_producttype, attr_orbitdirection,
-	                          attr_polarisationmode, attr_sensoropmode,
-	                          attr_productid, attr_datedownloaded)
-	            c.execute("INSERT INTO downloads VALUES (NULL,?,?,?,?,?,?,?,?,?)", parameters)
-	    	else:
-	        	products_new.pop(product)
-	        	print(product + "_popped")
-	        
-		conn.commit()
-		conn.close()
-
-	return products_new
-
+# Download scenes not on the database
 def download_job(products, output_dir, api):
 
 	# download all results from the search
@@ -152,6 +112,8 @@ def download_job(products, output_dir, api):
 		products_df.to_csv(str(now_time)+'.csv')
 		print(str(now_time)+'.csv created at ' + output_dir)
 
+
+# Check for file integrity
 def check_files_job(products, output_dir, api):
 
 	pid = []
@@ -177,7 +139,7 @@ def check_files_job(products, output_dir, api):
 
 	return has_error
 
-	
+# Write completed scene to database and rename the file
 def sql_write_and_rename_job(products, output_dir, foot_list, api, tile_num):
 
 	if df.writeToDB:
@@ -231,34 +193,7 @@ def sql_write_and_rename_job(products, output_dir, foot_list, api, tile_num):
 					conn.commit()
 					conn.close()
 
-
-					
-
-	# if df.writeToDB:
-	# 	conn =sqlite3.connect('sentinelsatDB.db')
-	# 	c = conn.cursor()
-	# 	c.execute('''CREATE TABLE IF NOT EXISTS scenes (pid text, filename text, date text, satnum text, areacode text, output_dir text)''')
-	# 	for product in products:
-	# 		t = (product, )
-	# 		c. execute('SELECT * FROM scenes where pid = ?', t)
-	# 		temp = c.fetchone()
-
-	# 		if temp is None:
-	# 			pid = product
-	# 			filename = products[product]['filename']
-	# 			date = str(products[product]['beginposition']).split()[0]
-	# 			satnum = foot_list[1]
-	# 			areacode = foot_list[2]
-	# 			output_dir = foot_list[0]
-	# 			database_write = (pid, filename, date, satnum, areacode, output_dir)
-	# 			c.execute('INSERT INTO scenes VALUES (?,?,?,?,?,?)', database_write)
-	# 			print(filename + ' added to inventory.')
-
-				
-	# 	conn.commit()
-	# 	conn.close()
-
-
+# Read the database
 def sql_read(products):
 
 	products_new = {}
@@ -268,44 +203,19 @@ def sql_read(products):
 		c.execute('''CREATE TABLE IF NOT EXISTS scenes (pid text, filename text, date text, satnum text, areacode text, output_dir text)''')
 
 		products_new = products
-		#print('products_new: ' + str(products_new))
-		#print('hello')
 		for product in products:
 				
 			c.execute('SELECT * FROM scenes WHERE pid=?', (product, ))
-			temp = c.fetchall()
-			if temp:
-
-				#print('temp: ' + str(temp))
+			if c.fetchall:
 
 				print(products[product]['filename'] + ' is already in the inventory.')
 				products_new.pop(product)
-				#print(products_new)
-
 
 		conn.close()
 
 	return products_new
 
 
-
-def rename_job(output_dir, directory, tile_num):
-
-	if df.renameFiles:
-
-		for filename in os.listdir(output_dir):
-
-			if filename.endswith('.zip') and len(filename) > 20:
-
-			    ###     parse filename with sensing date    ###
-
-			    path = os.path.join(output_dir, filename)
-			    file_param = filename.split('_')
-			    sense_date = file_param[5]
-			    new_filename = sense_date[0:8] + '_' + tile_num + '.zip'
-			    print('Renaming ' + filename + ' to ' + new_filename)
-			    target = os.path.join(output_dir, sense_date[0:8] + '_' + tile_num + '.zip')
-			    os.rename(path, target)
 
 
 
