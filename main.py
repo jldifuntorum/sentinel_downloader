@@ -10,8 +10,6 @@ import logging
 footprint_l = {}
 error_list = {}
 products_new = {}
-product_list = []
-output_dir_l = []
 
 
 if __name__ == "__main__":
@@ -26,18 +24,12 @@ if __name__ == "__main__":
 		foot_list = footprint_l[footprint]
 		output_dir = foot_list[0]
 
-		sat_and_tile = output_dir.replace(df.directory2,'')
-		sat_num, tile_num = re.split('\ |/', sat_and_tile)
-
-		products = sat_query_job(footprint, api, foot_list[1], tile_num)
+		products = sat_query_job(footprint, api, foot_list[1], foot_list[2])
 	
-		output_dir = foot_list[0]
-		
-
 		# directory query for products to download
 		products_new = sql_read(products)
 		download_job(products_new, output_dir, api)
 		error_list = check_files_job(products_new, output_dir, api)
 		if not error_list:
-			sql_write_and_rename_job(products_new, output_dir, foot_list, api, tile_num)
+			sql_write_and_rename_job(products_new, output_dir, foot_list, api, foot_list[2])
 			

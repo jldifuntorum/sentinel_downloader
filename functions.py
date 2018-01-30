@@ -10,7 +10,6 @@ import def_values as df
 import csv
 from collections import defaultdict
 import logging
-import datetime
 
 #Function Declarations
 
@@ -127,11 +126,12 @@ def check_files_job(products, output_dir, api):
 	
 	if pid and df.checkFiles: 
 		error_list = api.check_files(ids = pid, directory = output_dir)
-		print ('error_list: ' + str(error_list))
+		#print ('error_list: ' + str(error_list))
 		if error_list:
 			for errors in error_list:
 				print('Error on file ' + str(error_list[errors][0]['title']) + ' located at ' + output_dir)
-				logging.error('Error on file ' + str(error_list[errors][0]['title']) + ' located at ' + output_dir)
+				logging.error('Error on file ' + str(error_list[errors][0]['title']) + ' located at ' + output_dir + '\n')
+				logging.error('Date checked: ' + str(datetime.datetime.now()) + '\n')
 			
 			# Redownload file in case of error
 			if df.downloadProducts:
@@ -141,7 +141,6 @@ def check_files_job(products, output_dir, api):
 			error_list = api.check_files(ids = pid, directory = output_dir)	
 
 	return error_list
-
 
 # Write completed scene to database and rename the file
 def sql_write_and_rename_job(products, output_dir, foot_list, api, tile_num):
@@ -162,6 +161,7 @@ def sql_write_and_rename_job(products, output_dir, foot_list, api, tile_num):
 						for file_zip in check_dict:
 							print 'ERROR: ' + file_zip + ' does not match ' + str(check_dict[file_zip][0]['title']) + ' on Copernicus server.'
 							logging.error(file_zip + ' does not match ' + str(check_dict[file_zip][0]['title']) + ' on Copernicus server.' + '\n')
+							logging.error('Date checked: ' + str(datetime.datetime.now()) + '\n')
 		
 							if df.downloadProducts:
 								print 'Retrying download of ' + file_zip
@@ -218,8 +218,7 @@ def sql_read(products):
 		for product in products:
 				
 			c.execute('SELECT * FROM scenes WHERE pid=?', (product, ))
-			if c.fetchall:
-
+			if (c.fetchall()):
 				print(products[product]['filename'] + ' is already in the inventory.')
 				products_new.pop(product)
 

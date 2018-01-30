@@ -25,6 +25,7 @@ polarisation_mode = None
 cloud_cover_percentage = None
 sensor_operational_mode = None
 sat_limiter = 'both'
+max_download_retry = 5
 
 # post-search modes
 printProducts = True
@@ -32,7 +33,7 @@ writeToDB = True
 downloadProducts = False
 getGeoJSON = False
 writetoCSV = False
-checkFiles = True
+checkFiles = True	#Note: Downloader will always produce an error if checkFiles == True and downloadProducts == False
 renameFiles = True
 readDB = True
 
