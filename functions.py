@@ -6,7 +6,7 @@ import pandas as pd
 import glob 
 import re
 import sqlite3
-import def_values as df
+import def_values_for_hpc as df
 import csv
 from collections import defaultdict
 import logging
@@ -14,6 +14,46 @@ import logging
 #Function Declarations
 
 logging.basicConfig(filename='error_sentinel.log',level=logging.ERROR)
+
+def sql_connect():
+	conn = sqlite3.connect('sentinelsatDB.db')
+	c = conn.cursor()
+
+	return c, conn
+
+def sql_close(conn):
+
+	conn.commit()
+	conn.close()
+
+def sql_update(c, conn, stat, product):
+
+	c.execute('''UPDATE scenes SET status = ? WHERE pid = ? ''', (stat, product))
+	conn.commit()
+
+
+def sql_new_entry(c, products, product, status, output_dir, foot_list):
+
+	pid = product
+	file_title = products[product]['filename']
+	date = str(products[product]['beginposition']).split()[0]
+	satnum = foot_list[1]
+	areacode = foot_list[2]
+	output_dir = foot_list[0]
+	database_write = (pid, file_title, date, satnum, areacode, output_dir, status)
+	c.execute('INSERT INTO scenes VALUES (?,?,?,?,?,?,?)', database_write)
+	print(file_title + ' added to database inventory.')
+
+def database_init():
+
+	c, conn = sql_connect()
+	c.execute('SELECT * FROM scenes WHERE status=?', ('DOWNLOADING', ))
+	print 'Changing status of unfinished downloads to QUEUED'
+	for downloads in c.fetchall():
+		#c.execute('''DELETE FROM scenes WHERE pid = ? ''', (downloads[0],))
+		sql_update(c, conn, 'QUEUED', downloads[0])
+	sql_close(conn)
+
 
 def iterate_files(files, satnum, directory2, root):
 
@@ -103,8 +143,18 @@ def download_job(products, output_dir, api):
 
 	# download all results from the search
 	if df.downloadProducts:
-	    api.download_all(products, output_dir)
+		c, conn = sql_connect()
 
+		for product in products:
+
+			#IF STAT == QUEUED:
+			if df.writeToDB:
+				sql_update(c, conn, 'DOWNLOADING', product)
+				print('Database updated: Downloading ' + products[product]['filename'])
+
+			api.download(product, directory_path = output_dir)
+
+		sql_close(conn)
 
 	if df.writetoCSV:
 		products_df = api.to_dataframe(products)
@@ -142,6 +192,7 @@ def check_files_job(products, output_dir, api):
 
 	return error_list
 
+
 # Write completed scene to database and rename the file
 def sql_write_and_rename_job(products, output_dir, foot_list, api, tile_num):
 
@@ -152,77 +203,97 @@ def sql_write_and_rename_job(products, output_dir, foot_list, api, tile_num):
 
 			if filename.endswith('.zip') and len(filename) > 20 :
 
-				file_list = []
-				file_list.append(os.path.join(output_dir,filename))
-				check_dict  = api.check_files(paths = file_list)
-				
-				if check_dict:
-					if df.checkFiles:
-						for file_zip in check_dict:
-							print 'ERROR: ' + file_zip + ' does not match ' + str(check_dict[file_zip][0]['title']) + ' on Copernicus server.'
-							logging.error(file_zip + ' does not match ' + str(check_dict[file_zip][0]['title']) + ' on Copernicus server.' + '\n')
-							logging.error('Date checked: ' + str(datetime.datetime.now()) + '\n')
-		
-							if df.downloadProducts:
-								print 'Retrying download of ' + file_zip
-								api.download(check_dict[file_zip][0]['id'], output_dir)
+				c, conn = sql_connect()
+				filename_SAFE = filename.replace('zip', 'SAFE')
+				t = (filename_SAFE, )
+				c.execute('SELECT * FROM scenes where filename = ?', t)
+				file_comp = c.fetchone()
 
+				if file_comp is None:
+
+						#do something
+						print('Error on file ' + filename_SAFE + ' located at ' + output_dir + '. File is not on database inventory')
+						logging.error('Error on file ' + filename_SAFE + ' located at ' + output_dir + '. File is not on database inventory' + '\n')
+						logging.error('Date checked: ' + str(datetime.datetime.now()) + '\n')
 
 				else:
 
-					conn =sqlite3.connect('sentinelsatDB.db')
-					c = conn.cursor()
-					c.execute('''CREATE TABLE IF NOT EXISTS scenes (pid text, filename text, date text, satnum text, areacode text, output_dir text)''')
-					filename_SAFE = filename.replace('zip','SAFE')
-					t = (filename_SAFE, )
-					c.execute('SELECT * FROM scenes where filename = ?', t)
+						if file_comp[6] == 'COMPLETED':
+
+							continue
+						else:
+
+							file_list = []
+							file_list.append(os.path.join(output_dir,filename))
+							check_dict  = api.check_files(paths = file_list)
+							
+							if check_dict:
+								if df.checkFiles:
+									for file_zip in check_dict:
+										print 'ERROR: ' + file_zip + ' does not match ' + str(check_dict[file_zip][0]['title']) + ' on Copernicus server.'
+										logging.error(file_zip + ' does not match ' + str(check_dict[file_zip][0]['title']) + ' on Copernicus server.' + '\n')
+										logging.error('Date checked: ' + str(datetime.datetime.now()) + '\n')
 					
-					if c.fetchone() is None:
+										if df.downloadProducts:
+											print 'Retrying download of ' + file_zip
+											api.download(check_dict[file_zip][0]['id'], output_dir)
 
-						for product in products:
-							if products[product]['filename'] == filename_SAFE: 
-								pid = product
-								file_title = products[product]['filename']
-								date = str(products[product]['beginposition']).split()[0]
-								satnum = foot_list[1]
-								areacode = foot_list[2]
-								output_dir = foot_list[0]
-								database_write = (pid, file_title, date, satnum, areacode, output_dir)
-								c.execute('INSERT INTO scenes VALUES (?,?,?,?,?,?)', database_write)
-								print(filename + ' added to inventory.')
+							else: 
 
-						# Rename file
-						if df.renameFiles: 
+								sql_update(c, conn, 'COMPLETED', file_comp[0])
+								print(file_comp[1] + ' download complete.')
+								print('File saved at ' + output_dir + '\n')
 
-							path = os.path.join(output_dir, filename)
-				    		file_param = filename.split('_')
-				    		sense_date = file_param[5]
-				    		new_filename = sense_date[0:8] + '_' + tile_num + '.zip'
-				    		print('Renaming ' + filename + ' to ' + new_filename)
-				    		target = os.path.join(output_dir, sense_date[0:8] + '_' + tile_num + '.zip')
-				    		os.rename(path, target)
+								if df.renameFiles: 
 
-					conn.commit()
-					conn.close()
+									path = os.path.join(output_dir, filename)
+						    		file_param = filename.split('_')
+						    		sense_date = file_param[5]
+						    		new_filename = sense_date[0:8] + '_' + tile_num + '.zip'
+						    		print('Renaming ' + filename + ' to ' + new_filename)
+						    		target = os.path.join(output_dir, sense_date[0:8] + '_' + tile_num + '.zip')
+						    		os.rename(path, target)
 
+				sql_close(conn)
+
+
+				
 #  Read the database
-def sql_read(products):
+
+
+
+
+def sql_read(products, output_dir, foot_list):
 
 	products_new = {}
 	if df.readDB:
-		conn = sqlite3.connect('sentinelsatDB.db')
-		c = conn.cursor()
-		c.execute('''CREATE TABLE IF NOT EXISTS scenes (pid text, filename text, date text, satnum text, areacode text, output_dir text)''')
+		c, conn = sql_connect()
+		c.execute('''CREATE TABLE IF NOT EXISTS scenes (pid text, filename text, date text, satnum text, areacode text, output_dir text, status text)''')
 
 		products_new = products
 		for product in products:
 				
 			c.execute('SELECT * FROM scenes WHERE pid=?', (product, ))
-			if (c.fetchall()):
-				print(products[product]['filename'] + ' is already in the inventory.')
-				products_new.pop(product)
+			row = c.fetchone()
+			if row:
+				
+				if row[6] == 'QUEUED':
 
-		conn.close()
+					continue
+				else:
+
+					if row[6] == 'DOWNLOADING':
+						print(row[1] + ' is already downloading')
+					elif row[6] == 'COMPLETED':
+						print(row[1] + ' is already downloaded')
+					
+					products_new.pop(product)
+
+			else:
+				if df.writeToDB:
+					sql_new_entry(c, products_new, product, 'QUEUED', output_dir, foot_list)
+
+		sql_close(conn)
 
 	return products_new
 

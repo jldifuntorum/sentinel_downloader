@@ -1,6 +1,6 @@
 # login credentials
-username = 'jldifuntorum'
-password = 'copernicus'
+username = 'noel.datos'
+password = 'datos2018'
 url = ''
 
 # directories
@@ -30,7 +30,7 @@ max_download_retry = 5
 # post-search modes
 printProducts = True
 writeToDB = True
-downloadProducts = False
+downloadProducts = True
 getGeoJSON = False
 writetoCSV = False
 checkFiles = True	#Note: Downloader will always produce an error if checkFiles == True and downloadProducts == False

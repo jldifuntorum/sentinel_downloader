@@ -15,7 +15,7 @@ directory2 = '/home/kit.difuntorum/datos1/Sentinel_Scenes/Sentinel_Images/'
 # temp_dir = '/Users/kitdifuntorum/Documents/Temp'
 
 # query keywords
-start_date = 'NOW-3DAY'
+start_date = 'NOW-1MONTH'
 end_date = 'NOW'
 file_name = None
 product_type = 'SLC'
@@ -24,6 +24,8 @@ orbit_direction = None
 polarisation_mode = None
 cloud_cover_percentage = None
 sensor_operational_mode = None
+sat_limiter = 'both'
+max_download_retry = 5
 
 # post-search modes
 printProducts = True
@@ -32,6 +34,6 @@ downloadProducts = True
 getGeoJSON = False
 writetoCSV = False
 checkFiles = True
-renameFiles = True
+renameFiles = False
 readDB = True
 
